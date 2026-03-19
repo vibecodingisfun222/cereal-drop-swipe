@@ -1,0 +1,19 @@
+{
+  "name": "Cereal Drop",
+  "short_name": "Cereal Drop",
+  "description": "Catch falling cereal, marshmallows, and dodge bombs!",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#A78BFA",
+  "theme_color": "#A78BFA",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='%23A78BFA'/><text y='340' x='256' text-anchor='middle' font-size='300'>🥣</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
