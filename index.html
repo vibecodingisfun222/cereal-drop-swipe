@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cereal Drop</title>
+  <link rel="manifest" href="manifest.json"/>
+  <meta name="theme-color" content="#A78BFA"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-title" content="Cereal Drop"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: linear-gradient(135deg, #C084FC 0%, #A78BFA 45%, #60A5FA 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Nunito', sans-serif;
+      overflow: hidden;
+    }
+
+    #game-wrapper {
+      position: relative;
+      width: 480px;
+      height: 680px;
+    }
+
+    .hidden { display: none !important; }
+
+    #install-banner {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(255,255,255,0.28);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1.5px solid rgba(255,255,255,0.5);
+      border-radius: 50px;
+      padding: 10px 10px 10px 20px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      color: white;
+      white-space: nowrap;
+      box-shadow: 0 8px 32px rgba(88,28,180,0.25);
+      z-index: 100;
+      transition: opacity 0.4s, transform 0.4s;
+    }
+    #install-banner.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-50%) translateY(16px);
+    }
+    #install-banner .install-btn {
+      font-family: 'Fredoka One', sans-serif;
+      font-size: 14px;
+      color: #7C3AED;
+      background: white;
+      border: none;
+      border-radius: 50px;
+      padding: 7px 18px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    #install-banner .install-btn:hover { background: #F5F3FF; }
+    #install-banner .dismiss-btn {
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      font-size: 18px;
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+
+    canvas {
+      display: block;
+      touch-action: none;
+      border-radius: 24px;
+      box-shadow:
+        0 24px 80px rgba(88, 28, 180, 0.35),
+        0 0 0 1.5px rgba(255,255,255,0.25);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-wrapper">
+    <canvas id="c" width="480" height="680"></canvas>
+  </div>
+
+  <!-- Start screen overlay -->
+  <div id="startScreen" style="
+    position: absolute; inset: 0; border-radius: 24px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px;
+    background: rgba(109, 40, 217, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10;
+  ">
+    <div style="font-family: 'Fredoka One', sans-serif; font-size: 52px; color: white;
+                text-shadow: 0 3px 16px rgba(88,28,180,0.5); letter-spacing: 1px;">
+      🥣 Cereal Drop
+    </div>
+    <div style="background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.4);
+                border-radius: 20px; padding: 24px 36px; text-align: center; color: white; max-width: 300px;">
+      <div style="font-size: 15px; color: rgba(255,255,255,0.88); line-height: 1.65;">
+        Catch falling goodies with your bowl using <strong>← →</strong> arrow keys!
+      </div>
+      <div style="display: flex; flex-wrap: wrap; gap: 10px 16px; justify-content: center; margin-top: 14px;">
+        <div style="display:flex;align-items:center;gap:7px;font-size:13px;">
+          <div style="width:13px;height:13px;border-radius:50%;background:#F97316;border:2px solid #EA580C;flex-shrink:0;"></div>
+          Cereal = +1
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;font-size:13px;">
+          <div style="width:13px;height:13px;border-radius:50%;background:#F1F5F9;border:2px solid #CBD5E1;flex-shrink:0;"></div>
+          Marshmallow = +5
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;font-size:13px;">
+          <div style="width:13px;height:13px;border-radius:50%;background:#374151;border:2px solid #1F2937;flex-shrink:0;"></div>
+          Bomb = 💥 Game Over
+        </div>
+      </div>
+    </div>
+    <button id="startBtn" style="
+      font-family: 'Fredoka One', sans-serif; font-size: 20px; color: white;
+      background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5);
+      border-radius: 50px; padding: 13px 46px; cursor: pointer; letter-spacing: 0.5px;
+    ">Let's Play!</button>
+  </div>
+
+  <!-- Game Over overlay -->
+  <div id="gameOverScreen" class="hidden" style="
+    position: absolute; inset: 0; border-radius: 24px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 18px;
+    background: rgba(109, 40, 217, 0.55);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10;
+  ">
+    <div style="font-family: 'Fredoka One', sans-serif; font-size: 52px; color: white;
+                text-shadow: 0 3px 16px rgba(88,28,180,0.5); letter-spacing: 1px;">
+      💥 BOOM!
+    </div>
+    <div style="background: rgba(255,255,255,0.2); border: 1.5px solid rgba(255,255,255,0.4);
+                border-radius: 20px; padding: 24px 40px; text-align: center; color: white;">
+      <div style="font-size: 12px; color: rgba(255,255,255,0.65); letter-spacing: 2px;">YOUR SCORE</div>
+      <div id="finalScore" style="font-family: 'Fredoka One', sans-serif; font-size: 58px; line-height: 1; margin-top: 4px;">0</div>
+      <div id="finalBest" style="font-size: 13px; color: rgba(255,255,255,0.6); margin-top: 6px;"></div>
+    </div>
+    <button id="restartBtn" style="
+      font-family: 'Fredoka One', sans-serif; font-size: 20px; color: white;
+      background: rgba(255,255,255,0.2); border: 2px solid rgba(255,255,255,0.5);
+      border-radius: 50px; padding: 13px 46px; cursor: pointer; letter-spacing: 0.5px;
+    ">Play Again</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    // ── Constants ──────────────────────────────────────
+    const BOWL_W    = 112;
+    const BOWL_H    = 50;
+    const BOWL_Y    = H - 78;
+    const BOWL_SPEED = 5;
+    const ITEM_R    = 13;   // all items same radius
+
+    // ── Cereal color palette ───────────────────────────
+    const CEREAL_COLORS = [
+      { top: '#FCA5A5', bot: '#EF4444', stroke: '#DC2626', hole: '#FEE2E2' }, // red
+      { top: '#FED7AA', bot: '#F97316', stroke: '#EA580C', hole: '#FFEDD5' }, // orange
+      { top: '#FEF08A', bot: '#EAB308', stroke: '#CA8A04', hole: '#FEF9C3' }, // yellow
+      { top: '#BBF7D0', bot: '#22C55E', stroke: '#16A34A', hole: '#DCFCE7' }, // green
+      { top: '#BAE6FD', bot: '#3B82F6', stroke: '#2563EB', hole: '#EFF6FF' }, // blue
+      { top: '#E9D5FF', bot: '#A855F7', stroke: '#9333EA', hole: '#F5F3FF' }, // purple
+    ];
+
+    // ── Score state ────────────────────────────────────
+    let score = 0;
+    let best  = +(localStorage.getItem('cereal_best') || 0);
+
+    // ── Bowl state ─────────────────────────────────────
+    const bowl = { x: W / 2 };
+    const keys = { left: false, right: false };
+
+    document.addEventListener('keydown', e => {
+      if (e.key === 'ArrowLeft')  { keys.left  = true; e.preventDefault(); }
+      if (e.key === 'ArrowRight') { keys.right = true; e.preventDefault(); }
+    });
+    document.addEventListener('keyup', e => {
+      if (e.key === 'ArrowLeft')  keys.left  = false;
+      if (e.key === 'ArrowRight') keys.right = false;
+    });
+
+    // ── Touch controls ─────────────────────────────────
+    // touchX tracks where the finger currently is so we can
+    // move the bowl directly to that position each frame
+    let touchX = null;
+
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      // Convert touch position to canvas coordinates
+      const rect  = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      touchX = (e.touches[0].clientX - rect.left) * scaleX;
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const rect  = canvas.getBoundingClientRect();
+      const scaleX = W / rect.width;
+      touchX = (e.touches[0].clientX - rect.left) * scaleX;
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', () => {
+      touchX = null; // finger lifted — stop following
+    });
+
+    // ── Falling items ──────────────────────────────────
+    // Each item: { x, y, vy, type, colorIdx, rot, rotV, tilt }
+    let items = [];
+    let spawnTimer = 0;
+    let spawnEvery = 60;  // shrinks as score grows
+    let baseSpeed  = 2.6; // increases as score grows
+
+    function spawnItem() {
+      const margin = ITEM_R + 18;
+      const x = margin + Math.random() * (W - margin * 2);
+      // 10% bomb, 12% marshmallow, rest cereal
+      const r = Math.random();
+      const type = r < 0.10 ? 'bomb' : r < 0.22 ? 'marsh' : 'cereal';
+      const speed = baseSpeed + Math.random() * 1.1 + (type === 'marsh' ? 1.6 : 0);
+      items.push({
+        x, y: -24,
+        vy: speed,
+        type,
+        colorIdx: Math.floor(Math.random() * CEREAL_COLORS.length),
+        rot:  Math.random() * Math.PI * 2,
+        rotV: (Math.random() - 0.5) * 0.07,
+        tilt: (Math.random() - 0.5) * 0.5, // marshmallow lean angle
+      });
+    }
+
+    // ── Update ─────────────────────────────────────────
+    function update() {
+      // Move bowl — keyboard or touch
+      if (touchX !== null) {
+        // Smoothly follow the finger (lerp = blend towards target)
+        bowl.x += (touchX - bowl.x) * 0.25;
+      } else {
+        if (keys.left)  bowl.x -= BOWL_SPEED;
+        if (keys.right) bowl.x += BOWL_SPEED;
+      }
+      // Keep bowl inside the canvas walls
+      const half = BOWL_W / 2;
+      if (bowl.x < half)     bowl.x = half;
+      if (bowl.x > W - half) bowl.x = W - half;
+
+      // Spawn items
+      spawnTimer++;
+      if (spawnTimer >= spawnEvery) {
+        spawnItem();
+        spawnTimer = 0;
+      }
+
+      // Move items + check collisions
+      const catchTop   = BOWL_Y - ITEM_R;
+      const catchLeft  = bowl.x - BOWL_W / 2 + 10;
+      const catchRight = bowl.x + BOWL_W / 2 - 10;
+
+      items = items.filter(item => {
+        item.y   += item.vy;
+        item.rot += item.rotV;
+
+        // Has item reached the bowl's catch zone?
+        const inZone = item.y >= catchTop && item.y <= catchTop + item.vy + 4;
+        const inBowl = item.x >= catchLeft && item.x <= catchRight;
+
+        if (inZone && inBowl) {
+          onCatch(item);
+          return false; // remove from array
+        }
+
+        return item.y < H + 40; // remove if off screen
+      });
+    }
+
+    // ── Game state: "idle" | "playing" | "dead" ────────
+    let gameState = 'idle';
+
+    // ── Floating score popups ──────────────────────────
+    // Each: { x, y, text, color, life }
+    let popups = [];
+
+    // ── On catch ───────────────────────────────────────
+    function onCatch(item) {
+      if (item.type === 'bomb') {
+        triggerGameOver();
+        return;
+      }
+
+      if (item.type === 'cereal') {
+        score += 1;
+        popups.push({ x: item.x, y: item.y, text: '+1', color: 'rgba(255,255,255,0.95)', life: 1 });
+      }
+      if (item.type === 'marsh') {
+        score += 5;
+        popups.push({ x: item.x, y: item.y, text: '+5 ✨', color: '#FEF08A', life: 1 });
+      }
+
+      // Save best score
+      if (score > best) {
+        best = score;
+        localStorage.setItem('cereal_best', best);
+      }
+
+      // Difficulty scaling
+      baseSpeed  = 2.6 + score * 0.04;
+      spawnEvery = Math.max(28, 62 - score * 0.5);
+    }
+
+    // ── Game over ──────────────────────────────────────
+    function triggerGameOver() {
+      gameState = 'dead';
+
+      // Flash the canvas red briefly, then show the overlay
+      let flashes = 0;
+      const flash = setInterval(() => {
+        ctx.fillStyle = flashes % 2 === 0
+          ? 'rgba(239, 68, 68, 0.45)'   // red flash on
+          : 'rgba(0, 0, 0, 0)';         // flash off
+        ctx.fillRect(0, 0, W, H);
+        flashes++;
+        if (flashes >= 6) {
+          clearInterval(flash);
+          showGameOverScreen();
+        }
+      }, 80);
+    }
+
+    function showGameOverScreen() {
+      document.getElementById('finalScore').textContent = score;
+      document.getElementById('finalBest').textContent  =
+        score >= best && score > 0 ? '🎉 New best score!' : 'Best: ' + best;
+      document.getElementById('gameOverScreen').classList.remove('hidden');
+    }
+
+    function startGame() {
+      score      = 0;
+      items      = [];
+      popups     = [];
+      spawnTimer = 0;
+      spawnEvery = 62;
+      baseSpeed  = 2.6;
+      bowl.x     = W / 2;
+      gameState  = 'playing';
+      document.getElementById('startScreen').classList.add('hidden');
+      document.getElementById('gameOverScreen').classList.add('hidden');
+    }
+
+    // ── Draw: background ───────────────────────────────
+    function drawBackground() {
+      const grad = ctx.createLinearGradient(0, 0, W, H);
+      grad.addColorStop(0,   '#C084FC');
+      grad.addColorStop(0.5, '#A78BFA');
+      grad.addColorStop(1,   '#60A5FA');
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, W, H, 24);
+      ctx.fill();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.07)';
+      for (let x = 60; x < W; x += 78)
+        for (let y = 55; y < H; y += 68) {
+          ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+        }
+    }
+
+    // ── Draw: bowl ─────────────────────────────────────
+    function drawBowl() {
+      const x = bowl.x, y = BOWL_Y;
+      const bw = BOWL_W / 2, baseW = 28;
+
+      // Shadow
+      ctx.beginPath();
+      ctx.ellipse(x + 3, y + BOWL_H + 8, 78, 10, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.13)';
+      ctx.fill();
+
+      // Body
+      ctx.beginPath();
+      ctx.moveTo(x - bw, y);
+      ctx.quadraticCurveTo(x - bw - 6, y + BOWL_H * 0.75, x - baseW, y + BOWL_H);
+      ctx.quadraticCurveTo(x,           y + BOWL_H + 6,    x + baseW, y + BOWL_H);
+      ctx.quadraticCurveTo(x + bw + 6,  y + BOWL_H * 0.75, x + bw,   y);
+      ctx.closePath();
+      const bodyGrad = ctx.createLinearGradient(x, y, x, y + BOWL_H);
+      bodyGrad.addColorStop(0, 'rgba(237,233,254,0.95)');
+      bodyGrad.addColorStop(1, 'rgba(196,181,253,0.88)');
+      ctx.fillStyle = bodyGrad; ctx.fill();
+      ctx.strokeStyle = '#A78BFA'; ctx.lineWidth = 2.5; ctx.stroke();
+
+      // Rim
+      ctx.beginPath(); ctx.ellipse(x, y, bw, 16, 0, 0, Math.PI * 2);
+      const rimGrad = ctx.createLinearGradient(x - bw, y, x + bw, y);
+      rimGrad.addColorStop(0,   '#EDE9FE');
+      rimGrad.addColorStop(0.5, '#DDD6FE');
+      rimGrad.addColorStop(1,   '#EDE9FE');
+      ctx.fillStyle = rimGrad; ctx.fill();
+      ctx.strokeStyle = '#A78BFA'; ctx.lineWidth = 2.5; ctx.stroke();
+
+      // Inner rim
+      ctx.beginPath(); ctx.ellipse(x, y, bw - 10, 11, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#DDD6FE'; ctx.fill();
+      ctx.strokeStyle = '#C4B5FD'; ctx.lineWidth = 1; ctx.stroke();
+
+      // Milk surface
+      ctx.beginPath(); ctx.ellipse(x, y + 2, bw - 14, 9, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.60)'; ctx.fill();
+    }
+
+    // ── Draw: cereal piece ─────────────────────────────
+    function drawCereal(item) {
+      const c = CEREAL_COLORS[item.colorIdx];
+      ctx.save();
+      ctx.translate(item.x, item.y);
+      ctx.rotate(item.rot);
+
+      // Outer ring
+      const g = ctx.createRadialGradient(-4, -4, 1, 0, 0, ITEM_R);
+      g.addColorStop(0, c.top); g.addColorStop(1, c.bot);
+      ctx.beginPath(); ctx.arc(0, 0, ITEM_R, 0, Math.PI * 2);
+      ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = c.stroke; ctx.lineWidth = 1.8; ctx.stroke();
+
+      // Hole
+      ctx.beginPath(); ctx.arc(0, 0, 5.5, 0, Math.PI * 2);
+      ctx.fillStyle = c.hole; ctx.fill();
+      ctx.strokeStyle = c.stroke; ctx.lineWidth = 1.2; ctx.stroke();
+
+      // Shine
+      ctx.beginPath(); ctx.ellipse(-4, -5, 4, 2.5, -0.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.38)'; ctx.fill();
+
+      ctx.restore();
+    }
+
+    // ── Draw: marshmallow ──────────────────────────────
+    function drawMarshmallow(item) {
+      ctx.save();
+      ctx.translate(item.x, item.y);
+      ctx.rotate(item.tilt);
+
+      const w = 16, h = 19;
+
+      // Body — rounded rect, no caps (plain white pillow)
+      const g = ctx.createLinearGradient(-w, -h, w, h);
+      g.addColorStop(0,    '#FFFFFF');
+      g.addColorStop(0.55, '#F1F5F9');
+      g.addColorStop(1,    '#CBD5E1');
+      ctx.beginPath();
+      ctx.roundRect(-w, -h, w * 2, h * 2, 9);
+      ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = '#CBD5E1'; ctx.lineWidth = 1.4; ctx.stroke();
+
+      // Side shadow
+      ctx.beginPath();
+      ctx.roundRect(w - 5, -h + 4, 5, h * 2 - 8, [0, 8, 8, 0]);
+      ctx.fillStyle = 'rgba(148,163,184,0.25)'; ctx.fill();
+
+      // Highlight
+      ctx.beginPath(); ctx.ellipse(-5, -h + 6, 5, 3, -0.3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.72)'; ctx.fill();
+
+      ctx.restore();
+    }
+
+    // ── Draw: bomb ─────────────────────────────────────
+    function drawBomb(item) {
+      ctx.save();
+      ctx.translate(item.x, item.y);
+
+      // Shadow
+      ctx.beginPath(); ctx.ellipse(2, 26, 16, 5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fill();
+
+      // Body
+      const g = ctx.createRadialGradient(-6, -6, 2, 0, 4, 20);
+      g.addColorStop(0,    '#6B7280');
+      g.addColorStop(0.45, '#374151');
+      g.addColorStop(1,    '#0F172A');
+      ctx.beginPath(); ctx.arc(0, 5, 20, 0, Math.PI * 2);
+      ctx.fillStyle = g; ctx.fill();
+      ctx.strokeStyle = '#374151'; ctx.lineWidth = 1.2; ctx.stroke();
+
+      // Shine
+      ctx.beginPath(); ctx.ellipse(-6, -2, 7, 4.5, -0.5, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fill();
+
+      // Equator line
+      ctx.beginPath();
+      ctx.moveTo(-20, 5); ctx.quadraticCurveTo(0, 9, 20, 5);
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+      // Neck
+      ctx.beginPath(); ctx.roundRect(-5, -17, 10, 8, 2);
+      ctx.fillStyle = '#374151'; ctx.fill();
+      ctx.strokeStyle = '#1F2937'; ctx.lineWidth = 1; ctx.stroke();
+
+      // Fuse
+      ctx.beginPath();
+      ctx.moveTo(0, -17);
+      ctx.bezierCurveTo(5, -28, -4, -36, 2, -44);
+      ctx.bezierCurveTo(6, -50, -2, -56, 2, -62);
+      ctx.strokeStyle = '#92400E'; ctx.lineWidth = 2.8;
+      ctx.lineCap = 'round'; ctx.stroke();
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = '#B45309'; ctx.lineWidth = 1; ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Spark
+      ctx.beginPath(); ctx.arc(2, -62, 5, 0, Math.PI * 2);
+      ctx.fillStyle = '#FCD34D'; ctx.fill();
+      ctx.beginPath(); ctx.arc(2, -62, 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFBEB'; ctx.fill();
+
+      // Spark rays
+      [[ 0,-8],[6,-6],[-6,-6],[8,0],[-8,0],[5,5],[-5,5]].forEach(([dx, dy]) => {
+        ctx.beginPath();
+        ctx.moveTo(2 + dx * 0.4, -62 + dy * 0.4);
+        ctx.lineTo(2 + dx,       -62 + dy);
+        ctx.strokeStyle = '#FCD34D'; ctx.lineWidth = 1.8;
+        ctx.lineCap = 'round'; ctx.stroke();
+      });
+
+      // ! warning
+      ctx.fillStyle = '#EF4444';
+      ctx.font = 'bold 15px "Arial Black", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('!', 0, 12);
+
+      ctx.restore();
+    }
+
+    // ── Draw: all items ────────────────────────────────
+    function drawItems() {
+      items.forEach(item => {
+        if      (item.type === 'cereal') drawCereal(item);
+        else if (item.type === 'marsh')  drawMarshmallow(item);
+        else                             drawBomb(item);
+      });
+    }
+
+    // ── Draw: HUD ──────────────────────────────────────
+    function drawHUD() {
+      // Score panel (frosted glass card)
+      ctx.beginPath();
+      ctx.roundRect(W/2 - 76, 14, 152, 50, 13);
+      ctx.fillStyle = 'rgba(255,255,255,0.2)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,255,255,0.62)';
+      ctx.font = '600 11px Nunito';
+      ctx.fillText('SCORE', W/2, 33);
+      ctx.fillStyle = 'white';
+      ctx.font = '26px "Fredoka One"';
+      ctx.fillText(score, W/2, 57);
+
+      // Best score panel
+      ctx.beginPath();
+      ctx.roundRect(W - 112, 16, 96, 40, 11);
+      ctx.fillStyle = 'rgba(255,255,255,0.16)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.58)';
+      ctx.font = '600 10px Nunito';
+      ctx.fillText('BEST', W - 64, 31);
+      ctx.fillStyle = 'white';
+      ctx.font = '20px "Fredoka One"';
+      ctx.fillText(best, W - 64, 50);
+    }
+
+    // ── Draw: floating popups ──────────────────────────
+    function drawPopups() {
+      popups = popups.filter(p => p.life > 0);
+      popups.forEach(p => {
+        ctx.save();
+        ctx.globalAlpha = p.life;                  // fade out as life drops
+        ctx.textAlign = 'center';
+        ctx.font = '700 22px "Fredoka One"';
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = 'rgba(88,28,180,0.5)';
+        ctx.shadowBlur  = 6;
+        // float upward as life decreases
+        const floatY = p.y - (1 - p.life) * 60;
+        ctx.fillText(p.text, p.x, floatY);
+        ctx.restore();
+        p.life -= 0.025;                           // takes ~40 frames to fade
+      });
+    }
+
+    // ── Main loop ──────────────────────────────────────
+    function loop() {
+      ctx.clearRect(0, 0, W, H);
+      drawBackground();
+      if (gameState === 'playing') {
+        update();
+        drawItems();
+        drawBowl();
+        drawHUD();
+        drawPopups();
+      }
+      requestAnimationFrame(loop);
+    }
+
+    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('restartBtn').addEventListener('click', startGame);
+
+    // ── Register service worker ────────────────────────
+    // 'serviceWorker' in navigator checks the browser supports it
+    // (all modern browsers do)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('./sw.js')
+        .then(() => console.log('Cereal Drop: service worker registered!'))
+        .catch(err => console.warn('Cereal Drop: service worker failed:', err));
+    }
+
+    // ── PWA Install Banner ────────────────────────────
+    // The browser fires 'beforeinstallprompt' when it decides
+    // the app meets PWA criteria and can be installed.
+    let installPrompt = null;
+    const banner      = document.getElementById('install-banner');
+
+    window.addEventListener('beforeinstallprompt', e => {
+      e.preventDefault();              // stop the browser's default mini-bar
+      installPrompt = e;               // save the event for later
+      banner.classList.remove('hidden'); // show our custom banner
+    });
+
+    document.getElementById('installBtn').addEventListener('click', async () => {
+      if (!installPrompt) return;
+      installPrompt.prompt();          // trigger the native install dialog
+      const { outcome } = await installPrompt.userChoice;
+      console.log('Cereal Drop: install outcome:', outcome);
+      installPrompt = null;
+      banner.classList.add('hidden');
+    });
+
+    document.getElementById('dismissBtn').addEventListener('click', () => {
+      banner.classList.add('hidden');
+    });
+
+    // Hide banner if already installed
+    window.addEventListener('appinstalled', () => {
+      banner.classList.add('hidden');
+      console.log('Cereal Drop: installed successfully!');
+    });
+
+    loop();
+  </script>
+
+  <!-- PWA Install Banner -->
+  <div id="install-banner" class="hidden">
+    📲 Install Cereal Drop as an app!
+    <button class="install-btn" id="installBtn">Install</button>
+    <button class="dismiss-btn" id="dismissBtn">✕</button>
+  </div>
+
+</body>
+</html>
